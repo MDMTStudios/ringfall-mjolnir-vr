@@ -926,10 +926,16 @@ WIDGET_PATCHES = {
     # (Direct Link's clipboard button in the place of the PC version's
     # Refresh, and Refresh in Get List's: the Server Browser's only, which
     # asks the public games' hosts again; "swap" puts another widget in a
-    # child's place)
+    # child's place. The Server Browser's page buttons in Filters' place
+    # and, with Direct Link's clipboard button, in Refresh's: each mode
+    # shows its own, menu_functions.c)
     f"{MT}/join_game/join_game_button_bar": {"swap": {
         f"{MT}/join_game/join_game_button_refresh": f"{MT}/join_game/button_clipboard",
         f"{MT}/join_game/join_game_button_update": f"{MT}/join_game/join_game_button_refresh",
+        f"{MT}/join_game/join_game_button_filters": f"{MT}/join_game/button_page_next",
+    }, "insert_before": {
+        f"{MT}/join_game/join_game_button_filters": [
+            f'<child widget="{MT}/join_game/button_page_previous" x="128" y="1"/>'],
     }},
 }
 
@@ -1077,8 +1083,8 @@ def _value_row(base: str, key: str, label_index: int, run: str) -> list:
 
 
 def _join_game_extras() -> list:
-    """the browser's added titles, Direct Link's clipboard button, and the
-    password screen"""
+    """the browser's added titles, Direct Link's clipboard button, the
+    Server Browser's page buttons, and the password screen"""
     base = f"{MT}/join_game"
     lines = _password_screen()
     lines += _header(f"{base}/header_server_browser", f"{base}/header_server_browser")
@@ -1089,6 +1095,15 @@ def _join_game_extras() -> list:
                                                   ("color", "#FFFFFFFF"), ("align", "center"), ("text_y", 2)],
                      ['<on event="a" run="direct ip connect go"/>', '<on event="start" run="direct ip connect go"/>',
                       '<on event="left_mouse" run="mouse emit accept event"/>'])
+    # (the Server Browser's list a page at a time: its rows cannot be
+    # scrolled with the pointer, menu_functions.c's lobby_browser_page)
+    for name, text in (("button_page_previous", "PREV PAGE"), ("button_page_next", "NEXT PAGE")):
+        lines += _widget(f"{base}/{name}", [("type", "text"), ("width", 128), ("height", 24),
+                                            ("bitmap", "bitmaps/text_button_background"), ("text", text),
+                                            ("font", "ui\\small_ui"), ("color", "#FFFFFFFF"), ("align", "center"),
+                                            ("text_y", 2)],
+                         ['<on event="a" run="gamespy select button"/>', '<on event="start" run="gamespy select button"/>',
+                          '<on event="left_mouse" run="mouse emit accept event"/>'])
     return lines
 
 
