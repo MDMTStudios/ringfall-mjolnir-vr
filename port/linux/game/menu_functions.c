@@ -3794,6 +3794,10 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 		visible_set(named(screen, unused[index], 0), FALSE);
 	visible_set(named(screen, "button_clipboard", 0), multiplayer.mode == _multiplayer_mode_direct_link);
 	visible_set(named(screen, "join_game_button_refresh", 0), multiplayer.mode == _multiplayer_mode_server_browser);
+	/* (the pages' buttons: the server browser's, shown once its games are
+	more than its rows, lobby_browser_update) */
+	visible_set(named(screen, "button_page_previous", 0), FALSE);
+	visible_set(named(screen, "button_page_next", 0), FALSE);
 	{
 		struct widget_instance *list = named(screen, "join_game_items_list", 0);
 		struct widget_instance *child;
@@ -4034,8 +4038,30 @@ static void lobby_browser_focus_row(struct widget_instance *list, short row)
 	}
 }
 
+/* the list a page on (step 1, NEXT PAGE) or back (-1, PREV PAGE), to the
+page's first row, which is then the game chosen (the page count's): the
+pointer, which the VR menus are clicked with, cannot scroll the rows as
+the d-pad does (list_scrolls_at_end); nothing, with its sound, past the
+last page or before the first */
+static void lobby_browser_page(short step)
+{
+	short pages = (short)MAX(1, (lobby_browser.count + BROWSER_ROWS - 1) / BROWSER_ROWS);
+	short page = (short)PIN(lobby_browser.first / BROWSER_ROWS + step, 0, pages - 1);
+	short first = (short)(page * BROWSER_ROWS);
+
+	if (first == lobby_browser.first)
+	{
+		ui_play_audio_feedback_sound(SOUND_ERROR);
+		return;
+	}
+	lobby_browser.first = first;
+	lobby_browser.chosen = first;
+	ui_play_audio_feedback_sound(SOUND_FORWARD);
+}
+
 /* "gamespy screen update" for the server browser: the rows (scrolled on
-at their ends), the line below them, the counts over the titles */
+at their ends, or a page at a time by the buttons), the line below them,
+the counts over the titles */
 static void lobby_browser_update(struct widget_instance *list)
 {
 	struct widget_instance *stats = list->parameters.list.extended_description;
@@ -4057,7 +4083,13 @@ static void lobby_browser_update(struct widget_instance *list)
 		lobby_browser.first--;
 		lobby_browser_focus_row(list, ++focused);
 	}
-	lobby_browser.first = (short)PIN(lobby_browser.first, 0, MAX(0, lobby_browser.count - BROWSER_ROWS));
+	/* (kept on a game as games go; a page's first row may be its last
+	game, the rows past it hidden) */
+	lobby_browser.first = (short)PIN(lobby_browser.first, 0, MAX(0, lobby_browser.count - 1));
+	/* (the pages' buttons, once the games are more than the rows; the
+	focus off one hidden: browser_focus) */
+	visible_set(named(list, "button_page_previous", 0), lobby_browser.count > BROWSER_ROWS);
+	visible_set(named(list, "button_page_next", 0), lobby_browser.count > BROWSER_ROWS);
 	/* (the first game found takes the focus from the buttons, which had it
 	while there were none) */
 	if (lobby_browser.count && !lobby_browser.shown)
@@ -4270,6 +4302,11 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 		p2p_lobby_refresh();
 		lobby_browser.begin_time = system_milliseconds();
 		ui_play_audio_feedback_sound(SOUND_FORWARD);
+		return TRUE;
+	}
+	if (strstr(widget->name, "button_page_previous") || strstr(widget->name, "button_page_next"))
+	{
+		lobby_browser_page(strstr(widget->name, "button_page_next") ? 1 : -1);
 		return TRUE;
 	}
 	if (row == NONE && !strstr(widget->name, "button_join"))
